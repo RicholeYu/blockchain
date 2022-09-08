@@ -2,7 +2,8 @@ version: '2'
 
 services:
   blockchain:
-    container_name: wechat
+    image: richole/blockchain
+    container_name: blockchain
     network_mode: "bridge"
     build: .
     restart: "always"
