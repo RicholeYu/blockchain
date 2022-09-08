@@ -1,0 +1,10 @@
+version: '2'
+
+services:
+  blockchain:
+    container_name: wechat
+    network_mode: "bridge"
+    build: .
+    restart: "always"
+    ports:
+      - "9000:3000"
