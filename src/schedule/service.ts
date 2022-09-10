@@ -11,111 +11,122 @@ interface TickerOptions {
   closeTime?: number;
 }
 
-async function getTicker(windowSize, options: TickerOptions = {}) {
-  const response = await client.rollingWindowTicker(
-    '',
-    ['BTCUSDT', 'ETHUSDT'],
-    {
-      ...(windowSize ? { windowSize } : {}),
-      ...options,
-    },
-  );
-  console.log(response);
-  const ETH = response.data.find((item) => item.symbol === 'ETHUSDT');
-  const BTC = response.data.find((item) => item.symbol === 'BTCUSDT');
+async function getTicker(coin = '', windowSize, options: TickerOptions = {}) {
+  const coins = `${coin}USDT`;
+  const response = await client.rollingWindowTicker('', [coins], {
+    ...(windowSize ? { windowSize } : {}),
+    ...options,
+  });
 
-  return {
-    ETH,
-    BTC,
-  };
+  const item = response.data.find((item) => item.symbol === coins);
+
+  return item;
 }
 
 function pricePercent(item) {
   return item.priceChangePercent.startsWith('-')
-    ? `⬇️${+(+item.priceChangePercent.slice(1)).toFixed(2)}%️`
-    : `⬆️${+(+item.priceChangePercent).toFixed(2)}%`;
+    ? `下跌${+(+item.priceChangePercent.slice(1)).toFixed(2)}%️`
+    : `上涨${+(+item.priceChangePercent).toFixed(2)}%`;
 }
-@Injectable()
-export default class Service {
-  continueLongTimes = 0;
-  continueShortTimes = 0;
 
-  // 每小时固定推送
-  @Cron(CronExpression.EVERY_HOUR)
-  async getEveryHourTicker() {
-    const { ETH, BTC } = await getTicker('1h');
+const sendEmailBySubject = (subject, item) =>
+  sendEmail({
+    to: 'richoleyu@126.com',
+    subject,
+    html: [`<p>最新价格: ${~~item.lastPrice}, ${pricePercent(item)}</p>`].join(
+      '',
+    ),
+  });
 
-    sendEmail({
-      to: 'richoleyu@126.com',
-      subject: '一小时币圈快报',
-      html: [
-        `<p>ETH: ${~~ETH.lastPrice}, ${pricePercent(ETH)}</p>`,
-        `<p>BTC: ${~~BTC.lastPrice}, ${pricePercent(BTC)}</p>`,
-      ].join(''),
-    });
-  }
-
-  // 15分钟内涨跌幅超1%
-  @Cron(CronExpression.EVERY_MINUTE)
-  async getShortTicker() {
-    const { ETH, BTC } = await getTicker('15m');
-    const ethPrice = +ETH.priceChangePercent;
-    const btcPrice = +BTC.priceChangePercent;
-
-    if (
-      ethPrice > 1.0 ||
-      ethPrice < -1.0 ||
-      btcPrice > 1.0 ||
-      btcPrice < -1.0
-    ) {
-      sendEmail({
-        to: 'richoleyu@126.com',
-        subject: '过去15分钟涨跌幅超1%',
-        html: [
-          `<p>ETH: ${~~ETH.lastPrice}, ${pricePercent(ETH)}</p>`,
-          `<p>BTC: ${~~BTC.lastPrice}, ${pricePercent(BTC)}</p>`,
-        ].join(''),
-      });
+export default function (coin: string): any {
+  @Injectable()
+  class Service {
+    continueLongTimes = 0;
+    continueShortTimes = 0;
+    last15MinPrice = 0;
+    constructor() {
+      this.getEveryHourTicker();
     }
-  }
 
-  // 15分钟时间段连续涨跌幅
-  @Cron('0 */15 * * * *')
-  async getContinue15MinTicker() {
-    const { ETH, BTC } = await getTicker('15m');
-    const ethPrice = +ETH.priceChangePercent;
-    const btcPrice = +BTC.priceChangePercent;
+    // 每小时固定推送
+    @Cron(CronExpression.EVERY_HOUR)
+    async getEveryHourTicker() {
+      const item = await getTicker(coin, '1h');
 
-    if (ethPrice > 0 && btcPrice > 0) {
-      this.continueShortTimes = 0;
-      this.continueLongTimes++;
+      sendEmailBySubject(`一小时快报(${coin})`, item);
+    }
 
-      if (this.continueLongTimes >= 3) {
-        sendEmail({
-          to: 'richoleyu@126.com',
-          subject: `15分钟时间段已连续涨幅超过${this.continueLongTimes}次`,
-          html: [
-            `<p>ETH: ${~~ETH.lastPrice}, ${pricePercent(ETH)}</p>`,
-            `<p>BTC: ${~~BTC.lastPrice}, ${pricePercent(BTC)}</p>`,
-          ].join(''),
-        });
+    // 15分钟内涨跌幅超1%
+    @Cron(CronExpression.EVERY_MINUTE)
+    async getShortTicker() {
+      const item = await getTicker(coin, '15m');
+      const price = +item.priceChangePercent;
+
+      if (price > 1.0 || price < -1.0) {
+        sendEmailBySubject(`过去15分钟涨跌幅超1%(${coin})`, item);
       }
     }
 
-    if (ethPrice < 0 && btcPrice < 0) {
-      this.continueLongTimes = 0;
-      this.continueShortTimes++;
+    // 15分钟时间段连续涨跌幅
+    @Cron('0 */15 * * * *')
+    async getContinue15MinTicker() {
+      const item = await getTicker(coin, '15m');
+      const price = +item.priceChangePercent;
 
-      if (this.continueShortTimes >= 3) {
-        sendEmail({
-          to: 'richoleyu@126.com',
-          subject: `15分钟时间段已连续跌幅超过${this.continueShortTimes}次`,
-          html: [
-            `<p>ETH: ${~~ETH.lastPrice}, ${pricePercent(ETH)}</p>`,
-            `<p>BTC: ${~~BTC.lastPrice}, ${pricePercent(BTC)}</p>`,
-          ].join(''),
-        });
+      if (price > 0) {
+        this.continueShortTimes = 0;
+        this.continueLongTimes++;
+
+        if (this.continueLongTimes >= 3) {
+          sendEmailBySubject(
+            `15分钟时间段已连续涨幅超过${this.continueLongTimes}次(${coin})`,
+            item,
+          );
+        }
+      }
+
+      if (price < 0) {
+        this.continueLongTimes = 0;
+        this.continueShortTimes++;
+
+        if (this.continueShortTimes >= 3) {
+          sendEmailBySubject(
+            `15分钟时间段已连续跌幅超过${this.continueShortTimes}次(${coin})`,
+            item,
+          );
+        }
       }
     }
+
+    // 插针或连续行情
+    @Cron('0 */15 * * * *')
+    async getImportantTicker() {
+      const item = await getTicker(coin, '15m');
+      const price = +item.priceChangePercent;
+
+      if (price > 1) {
+        if (this.last15MinPrice > 1) {
+          sendEmailBySubject(`15分钟时间段已出现连续大波动上涨行情`, item);
+        }
+
+        if (this.last15MinPrice < -1) {
+          sendEmailBySubject(`15分钟时间段出现下跌插针行情`, item);
+        }
+      }
+
+      if (price < -1) {
+        if (this.last15MinPrice < -1) {
+          sendEmailBySubject(`15分钟时间段已出现连续大波动下跌行情`, item);
+        }
+
+        if (this.last15MinPrice > 1) {
+          sendEmailBySubject(`15分钟时间段出现上涨插针行情`, item);
+        }
+      }
+
+      this.last15MinPrice = price;
+    }
   }
+
+  return Service;
 }

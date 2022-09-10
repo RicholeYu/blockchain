@@ -5,6 +5,6 @@ import { ScheduleModule } from '@nestjs/schedule';
 @Module({
   imports: [ScheduleModule.forRoot()],
   controllers: [],
-  providers: [Service],
+  providers: [Service('BTC'), Service('ETH')],
 })
 export default class AppScheduleModule {}
