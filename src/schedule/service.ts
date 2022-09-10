@@ -56,7 +56,12 @@ export default class Service {
     const ethPrice = +ETH.priceChangePercent;
     const btcPrice = +BTC.priceChangePercent;
 
-    if (ethPrice > 1.0 || ethPrice < 1.0 || btcPrice > 1.0 || btcPrice < 1.0) {
+    if (
+      ethPrice > 1.0 ||
+      ethPrice < -1.0 ||
+      btcPrice > 1.0 ||
+      btcPrice < -1.0
+    ) {
       sendEmail({
         to: 'richoleyu@126.com',
         subject: '过去15分钟涨跌幅超1%',
