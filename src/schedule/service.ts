@@ -109,7 +109,7 @@ export default class Service {
       if (this.continueShortTimes >= 3) {
         sendEmail({
           to: 'richoleyu@126.com',
-          subject: `15分钟时间段已连续跌幅超过${this.continueLongTimes}次`,
+          subject: `15分钟时间段已连续跌幅超过${this.continueShortTimes}次`,
           html: [
             `<p>ETH: ${~~ETH.lastPrice}, ${pricePercent(ETH)}</p>`,
             `<p>BTC: ${~~BTC.lastPrice}, ${pricePercent(BTC)}</p>`,
