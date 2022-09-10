@@ -3,17 +3,24 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { Spot } from '@binance/connector';
 import sendEmail from '@dfyu/mailer';
 
-const { BINANCE_KEY, BINANCE_SECURE } = process.env;
-const client = new Spot(BINANCE_KEY, BINANCE_SECURE);
+const { BINANCE_KEY, BINANCE_SECRET } = process.env;
+const client = new Spot(BINANCE_KEY, BINANCE_SECRET);
 
-async function getTicker(windowSize) {
+interface TickerOptions {
+  openTime?: number;
+  closeTime?: number;
+}
+
+async function getTicker(windowSize, options: TickerOptions = {}) {
   const response = await client.rollingWindowTicker(
     '',
     ['BTCUSDT', 'ETHUSDT'],
     {
-      windowSize,
+      ...(windowSize ? { windowSize } : {}),
+      ...options,
     },
   );
+  console.log(response);
   const ETH = response.data.find((item) => item.symbol === 'ETHUSDT');
   const BTC = response.data.find((item) => item.symbol === 'BTCUSDT');
 
@@ -30,9 +37,8 @@ function pricePercent(item) {
 }
 @Injectable()
 export default class Service {
-  constructor() {
-    this.getEveryHourTicker();
-  }
+  continueLongTimes = 0;
+  continueShortTimes = 0;
 
   // 每小时固定推送
   @Cron(CronExpression.EVERY_HOUR)
@@ -70,6 +76,46 @@ export default class Service {
           `<p>BTC: ${~~BTC.lastPrice}, ${pricePercent(BTC)}</p>`,
         ].join(''),
       });
+    }
+  }
+
+  // 15分钟时间段连续涨跌幅
+  @Cron('0 */15 * * * *')
+  async getContinue15MinTicker() {
+    const { ETH, BTC } = await getTicker('15m');
+    const ethPrice = +ETH.priceChangePercent;
+    const btcPrice = +BTC.priceChangePercent;
+
+    if (ethPrice > 0 && btcPrice > 0) {
+      this.continueShortTimes = 0;
+      this.continueLongTimes++;
+
+      if (this.continueLongTimes >= 3) {
+        sendEmail({
+          to: 'richoleyu@126.com',
+          subject: `15分钟时间段已连续涨幅超过${this.continueLongTimes}次`,
+          html: [
+            `<p>ETH: ${~~ETH.lastPrice}, ${pricePercent(ETH)}</p>`,
+            `<p>BTC: ${~~BTC.lastPrice}, ${pricePercent(BTC)}</p>`,
+          ].join(''),
+        });
+      }
+    }
+
+    if (ethPrice < 0 && btcPrice < 0) {
+      this.continueLongTimes = 0;
+      this.continueShortTimes++;
+
+      if (this.continueShortTimes >= 3) {
+        sendEmail({
+          to: 'richoleyu@126.com',
+          subject: `15分钟时间段已连续跌幅超过${this.continueLongTimes}次`,
+          html: [
+            `<p>ETH: ${~~ETH.lastPrice}, ${pricePercent(ETH)}</p>`,
+            `<p>BTC: ${~~BTC.lastPrice}, ${pricePercent(BTC)}</p>`,
+          ].join(''),
+        });
+      }
     }
   }
 }
