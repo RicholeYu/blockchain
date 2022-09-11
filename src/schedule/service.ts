@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Spot } from '@binance/connector';
 import sendEmail from '@dfyu/mailer';
@@ -79,14 +79,15 @@ export default function (coin: string): any {
       const item = await getTicker(coin, '5m');
 
       if (this.last5MinPrice) {
+        Logger.log(`${item.quoteVolume}  ${this.last5MinPrice.quoteVolume}`);
         const precent =
-          (item.quoteVolume / item.last15MinPrice.quoteVolume - 1) * 100;
+          (item.quoteVolume / this.last5MinPrice.quoteVolume - 1) * 100;
         if (precent > 30) {
           sendEmailBySubject(`过去5分钟交易量大增${precent.toFixed(1)}%`, item);
         }
       }
 
-      this.last15MinPrice = item;
+      this.last5MinPrice = item;
     }
 
     // 15分钟时间段连续涨跌幅
