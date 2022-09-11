@@ -73,8 +73,8 @@ export default function (coin: string): any {
       sendEmailBySubject(`一小时快报(${coin})`, item);
     }
 
-    // 15分钟内涨跌幅超1%
-    @Cron(CronExpression.EVERY_MINUTE)
+    // 过去5分钟交易量增幅超过30%
+    @Cron(CronExpression.EVERY_5_MINUTES)
     async getShortTicker() {
       const item = await getTicker(coin, '5m');
 
