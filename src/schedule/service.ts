@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Spot } from '@binance/connector';
 import sendEmail from '@dfyu/mailer';
@@ -71,29 +71,40 @@ export default function (coin: string): any {
     continueShortArr = {};
     continueLongArr = {};
 
-    // 每小时固定推送
-    @Cron(CronExpression.EVERY_HOUR)
-    async getEveryHourTicker() {
-      // 每小时交易量增幅
-      this.getShortTicker('1h');
-      this.getImportantTicker('1h');
-      this.getContinueTicker('1h');
-
-      const item = await getTicker(coin, '1h');
-      sendEmailBySubject(`一小时快报(${coin})`, item);
-    }
-
+    // 五分钟定时器
     @Cron(CronExpression.EVERY_5_MINUTES)
     async every5MinTask() {
       // 过去5分钟交易量增幅
       this.getShortTicker('5m');
+      // 每五分钟连续大波动或插针
+      this.getImportantTicker('5m');
+      // 每五分钟连续涨跌幅
+      this.getContinueTicker('15m');
     }
 
-    // 15分钟时间段连续涨跌幅
+    // 15分钟定时器
     @Cron('0 */15 * * * *')
     async every15MinTask() {
+      // 过去5分钟交易量增幅
+      this.getShortTicker('15m');
+      // 15分钟连续大波动或插针
       this.getImportantTicker('15m');
+      // 15分钟时间段连续涨跌幅
       this.getContinueTicker('15m');
+    }
+
+    // 每小时定时器
+    @Cron(CronExpression.EVERY_HOUR)
+    async getEveryHourTicker() {
+      // 每小时交易量增幅
+      this.getShortTicker('1h');
+      // 每小时连续大波动或插针
+      this.getImportantTicker('1h');
+      // 每小时段连续涨跌幅
+      this.getContinueTicker('1h');
+
+      const item = await getTicker(coin, '1h');
+      sendEmailBySubject(`一小时快报(${coin})`, item);
     }
 
     // 交易量增幅
