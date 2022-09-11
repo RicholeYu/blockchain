@@ -11,6 +11,11 @@ interface TickerOptions {
   closeTime?: number;
 }
 
+interface Ticker {
+  priceChangePercent: string;
+  lastPrice: string;
+}
+
 async function getTicker(coin = '', windowSize, options: TickerOptions = {}) {
   const coins = `${coin}USDT`;
   const response = await client.rollingWindowTicker('', [coins], {
@@ -29,14 +34,23 @@ function pricePercent(item) {
     : `上涨${+(+item.priceChangePercent).toFixed(2)}%`;
 }
 
-const sendEmailBySubject = (subject, item) =>
-  sendEmail({
-    to: 'richoleyu@126.com',
-    subject,
-    html: [`<p>最新价格: ${~~item.lastPrice}, ${pricePercent(item)}</p>`].join(
-      '',
-    ),
-  });
+const sendEmailBySubject = (subject, item: string | Ticker) => {
+  if (typeof item === 'string') {
+    sendEmail({
+      to: 'richoleyu@126.com',
+      subject,
+      content: item,
+    });
+  } else {
+    sendEmail({
+      to: 'richoleyu@126.com',
+      subject,
+      html: [
+        `<p>最新价格: ${~~item.lastPrice}, ${pricePercent(item)}</p>`,
+      ].join(''),
+    });
+  }
+};
 
 export default function (coin: string): any {
   @Injectable()
@@ -44,8 +58,11 @@ export default function (coin: string): any {
     continueLongTimes = 0;
     continueShortTimes = 0;
     last15MinPrice = 0;
+    continueShortArr = [];
+    continueLongArr = [];
+    last5MinPrice = null;
     constructor() {
-      this.getEveryHourTicker();
+      this.getShortTicker();
     }
 
     // 每小时固定推送
@@ -59,12 +76,17 @@ export default function (coin: string): any {
     // 15分钟内涨跌幅超1%
     @Cron(CronExpression.EVERY_MINUTE)
     async getShortTicker() {
-      const item = await getTicker(coin, '15m');
-      const price = +item.priceChangePercent;
+      const item = await getTicker(coin, '5m');
 
-      if (price > 1.0 || price < -1.0) {
-        sendEmailBySubject(`过去15分钟涨跌幅超1%(${coin})`, item);
+      if (this.last5MinPrice) {
+        const precent =
+          (item.quoteVolume / item.last15MinPrice.quoteVolume - 1) * 100;
+        if (precent > 30) {
+          sendEmailBySubject(`过去5分钟交易量大增${precent.toFixed(1)}%`, item);
+        }
       }
+
+      this.last15MinPrice = item;
     }
 
     // 15分钟时间段连续涨跌幅
@@ -75,24 +97,42 @@ export default function (coin: string): any {
 
       if (price > 0) {
         this.continueShortTimes = 0;
+        this.continueShortArr = [];
         this.continueLongTimes++;
+        this.continueLongArr.push(item);
 
         if (this.continueLongTimes >= 3) {
+          const total = this.continueLongArr.reduce(
+            (total, current) => total + +current.priceChangePercent,
+            0,
+          );
           sendEmailBySubject(
-            `15分钟时间段已连续涨幅超过${this.continueLongTimes}次(${coin})`,
-            item,
+            `15分钟时间段已连续上涨超过${this.continueLongTimes}次(${coin})`,
+            `从${~~this.continueLongArr[0]
+              .lastPrice}上涨到${~~item.lastPrice}, 共计上涨${total.toFixed(
+              2,
+            )}%`,
           );
         }
       }
 
       if (price < 0) {
         this.continueLongTimes = 0;
+        this.continueLongArr = [];
         this.continueShortTimes++;
+        this.continueShortArr.push(item);
 
         if (this.continueShortTimes >= 3) {
+          const total = this.continueLongArr.reduce(
+            (total, current) => total + +current.priceChangePercents.slice(1),
+            0,
+          );
           sendEmailBySubject(
-            `15分钟时间段已连续跌幅超过${this.continueShortTimes}次(${coin})`,
-            item,
+            `15分钟时间段已连续下跌超过${this.continueShortTimes}次(${coin})`,
+            `从${~~this.continueLongArr[0]
+              .lastPrice}下跌到${~~item.lastPrice}, 共计下跌${total.toFixed(
+              2,
+            )}%`,
           );
         }
       }
