@@ -184,26 +184,32 @@ export default function (coin: string): any {
       if (price > 1) {
         if (lastPrice && +lastPrice.priceChangePercent > 1) {
           sendEmailBySubject(
-            `${formatTime(time)}时间段已出现连续大波动上涨行情`,
+            `${formatTime(time)}时间段已出现连续大波动上涨行情(${coin})`,
             item,
           );
         }
 
         if (lastPrice && +lastPrice.priceChangePercent < 1) {
-          sendEmailBySubject(`${formatTime(time)}时间段出现下跌插针行情`, item);
+          sendEmailBySubject(
+            `${formatTime(time)}时间段出现下跌插针行情${coin}`,
+            item,
+          );
         }
       }
 
       if (price < -1) {
         if (lastPrice && +lastPrice.priceChangePercent < -1) {
           sendEmailBySubject(
-            `${formatTime(time)}时间段已出现连续大波动下跌行情`,
+            `${formatTime(time)}时间段已出现连续大波动下跌行情(${coin})`,
             item,
           );
         }
 
         if (lastPrice && +lastPrice.priceChangePercent > 1) {
-          sendEmailBySubject(`${formatTime(time)}时间段出现上涨插针行情`, item);
+          sendEmailBySubject(
+            `${formatTime(time)}时间段出现上涨插针行情${coin}`,
+            item,
+          );
         }
       }
 
