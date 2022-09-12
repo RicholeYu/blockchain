@@ -79,7 +79,7 @@ export default function (coin: string): any {
       // 每五分钟连续大波动或插针
       this.getImportantTicker('5m');
       // 每五分钟连续涨跌幅
-      this.getContinueTicker('15m');
+      this.getContinueTicker('5m');
     }
 
     // 15分钟定时器
