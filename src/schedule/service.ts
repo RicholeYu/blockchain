@@ -128,28 +128,31 @@ export default function (coin: string): any {
     async getContinueTicker(time) {
       const item = await getTicker(coin, time);
       const price = Number(item.priceChangePercent);
+      const unit = `${time}_${coin}`;
 
       if (price > 0) {
-        this.continueShortTimes[time] = 0;
-        this.continueShortArr[time] = [];
-        this.continueLongTimes[time] = this.continueLongTimes[time] || 0;
-        this.continueLongArr[time] = this.continueLongArr[time] || [];
-        this.continueLongTimes[time]++;
-        this.continueLongArr[time].push(item);
+        this.continueShortTimes[unit] = 0;
+        this.continueShortArr[unit] = [];
+        this.continueLongTimes[unit] = this.continueLongTimes[unit] || 0;
+        this.continueLongArr[unit] = this.continueLongArr[unit] || [];
+        this.continueLongTimes[unit]++;
+        this.continueLongArr[unit].push(item);
         console.log(
-          this.continueLongArr[time],
-          this.continueLongTimes[time],
-          time,
+          this.continueLongArr[unit],
+          this.continueLongTimes[unit],
+          unit,
         );
 
-        if (this.continueLongTimes[time] >= 3) {
-          const total = this.continueLongArr[time].reduce(
+        if (this.continueLongTimes[unit] >= 3) {
+          const total = this.continueLongArr[unit].reduce(
             (total, current) => total + Number(current.priceChangePercent),
             0,
           );
           sendEmailBySubject(
-            `15分钟时间段已连续上涨超过${this.continueLongTimes[time]}次(${coin})`,
-            `从${~~this.continueLongArr[time][0]
+            `${formatTime(time)}时间段已连续上涨超过${
+              this.continueLongTimes[unit]
+            }次(${coin})`,
+            `从${~~this.continueLongArr[unit][0]
               .openPrice}上涨到${~~item.lastPrice}, 共计上涨${total.toFixed(
               2,
             )}%`,
@@ -158,26 +161,28 @@ export default function (coin: string): any {
       }
 
       if (price < 0) {
-        this.continueLongTimes[time] = 0;
-        this.continueLongArr[time] = [];
-        this.continueShortTimes[time] = this.continueShortTimes[time] || 0;
-        this.continueShortArr[time] = this.continueShortArr[time] || [];
-        this.continueShortTimes[time]++;
-        this.continueShortArr[time].push(item);
+        this.continueLongTimes[unit] = 0;
+        this.continueLongArr[unit] = [];
+        this.continueShortTimes[unit] = this.continueShortTimes[unit] || 0;
+        this.continueShortArr[unit] = this.continueShortArr[unit] || [];
+        this.continueShortTimes[unit]++;
+        this.continueShortArr[unit].push(item);
         console.log(
-          this.continueShortArr[time],
-          this.continueShortTimes[time],
-          time,
+          this.continueShortArr[unit],
+          this.continueShortTimes[unit],
+          unit,
         );
 
-        if (this.continueShortTimes[time] >= 3) {
-          const total = this.continueShortArr[time].reduce(
-            (total, current) => total + Number(current.priceChangePercents),
+        if (this.continueShortTimes[unit] >= 3) {
+          const total = this.continueShortArr[unit].reduce(
+            (total, current) => total + Number(current.priceChangePercent),
             0,
           );
           sendEmailBySubject(
-            `15分钟时间段已连续下跌超过${this.continueShortTimes[time]}次(${coin})`,
-            `从${~~this.continueShortArr[time][0]
+            `${formatTime(time)}时间段已连续下跌超过${
+              this.continueShortTimes[unit]
+            }次(${coin})`,
+            `从${~~this.continueShortArr[unit][0]
               .openPrice}下跌到${~~item.lastPrice}, 共计下跌${(
               -1 * total
             ).toFixed(2)}%`,
