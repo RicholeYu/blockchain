@@ -127,7 +127,7 @@ export default function (coin: string): any {
 
     async getContinueTicker(time) {
       const item = await getTicker(coin, time);
-      const price = +item.priceChangePercent;
+      const price = Number(item.priceChangePercent);
 
       if (price > 0) {
         this.continueShortTimes[time] = 0;
@@ -136,16 +136,21 @@ export default function (coin: string): any {
         this.continueLongArr[time] = this.continueLongArr[time] || [];
         this.continueLongTimes[time]++;
         this.continueLongArr[time].push(item);
+        console.log(
+          this.continueLongArr[time],
+          this.continueLongTimes[time],
+          time,
+        );
 
         if (this.continueLongTimes[time] >= 3) {
           const total = this.continueLongArr[time].reduce(
-            (total, current) => total + +current.priceChangePercent,
+            (total, current) => total + Number(current.priceChangePercent),
             0,
           );
           sendEmailBySubject(
             `15分钟时间段已连续上涨超过${this.continueLongTimes[time]}次(${coin})`,
             `从${~~this.continueLongArr[time][0]
-              .lastPrice}上涨到${~~item.lastPrice}, 共计上涨${total.toFixed(
+              .openPrice}上涨到${~~item.lastPrice}, 共计上涨${total.toFixed(
               2,
             )}%`,
           );
@@ -159,18 +164,23 @@ export default function (coin: string): any {
         this.continueShortArr[time] = this.continueShortArr[time] || [];
         this.continueShortTimes[time]++;
         this.continueShortArr[time].push(item);
+        console.log(
+          this.continueShortArr[time],
+          this.continueShortTimes[time],
+          time,
+        );
 
         if (this.continueShortTimes[time] >= 3) {
           const total = this.continueShortArr[time].reduce(
-            (total, current) => total + +current.priceChangePercents.slice(1),
+            (total, current) => total + Number(current.priceChangePercents),
             0,
           );
           sendEmailBySubject(
             `15分钟时间段已连续下跌超过${this.continueShortTimes[time]}次(${coin})`,
             `从${~~this.continueShortArr[time][0]
-              .lastPrice}下跌到${~~item.lastPrice}, 共计下跌${total.toFixed(
-              2,
-            )}%`,
+              .openPrice}下跌到${~~item.lastPrice}, 共计下跌${(
+              -1 * total
+            ).toFixed(2)}%`,
           );
         }
       }
