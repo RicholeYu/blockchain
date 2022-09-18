@@ -194,9 +194,12 @@ export default function (coin: string): any {
     async getImportantTicker(time) {
       const item = await getTicker(coin, time);
       const price = +item.priceChangePercent;
-      const lastPrice = this.lastPrice[time];
+      const unit = `${time}_${coin}`;
+      const lastPrice = this.lastPrice[unit] || null;
+      let mark = false;
 
       if (price > 1) {
+        mark = true;
         if (lastPrice && +lastPrice.priceChangePercent > 1) {
           sendEmailBySubject(
             `${formatTime(time)}时间段已出现连续大波动上涨行情(${coin})`,
@@ -213,6 +216,7 @@ export default function (coin: string): any {
       }
 
       if (price < -1) {
+        mark = true;
         if (lastPrice && +lastPrice.priceChangePercent < -1) {
           sendEmailBySubject(
             `${formatTime(time)}时间段已出现连续大波动下跌行情(${coin})`,
@@ -228,7 +232,11 @@ export default function (coin: string): any {
         }
       }
 
-      this.lastPrice[time] = price;
+      if (mark) {
+        this.lastPrice[unit] = item;
+      } else {
+        this.lastPrice[unit] = null;
+      }
     }
   }
 
